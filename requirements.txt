@@ -1,0 +1,8 @@
+spotipy
+pandas
+scikit-learn
+gradio
+Pillow
+stability-sdk
+protobuf
+streamlit
