@@ -21,22 +21,40 @@ def get_liked_songs(sp):
 
     tracks = results['items']
     song_data = []
+
     for item in tracks:
         track = item['track']
-        song_data.append({
-            'track_id': track['id'],
-            'track_name': track['name'],
-            'artist': track['artists'][0]['name'],
-            'album': track['album']['name'],
-            'release_date': track['album']['release_date'],
-            'danceability': track['danceability'],
-            'energy': track['energy'],
-            'tempo': track['tempo'],
-            'valence': track['valence'],
-            'genres': sp.artist(track['artists'][0]['id'])['genres']
-        })
+        track_id = track['id']
+
+        # Get audio features for the track
+        audio_features = sp.audio_features(track_id)[0]
+
+        if audio_features:
+            song_data.append({
+                'track_id': track_id,
+                'track_name': track['name'],
+                'artist': track['artists'][0]['name'],
+                'album': track['album']['name'],
+                'release_date': track['album']['release_date'],
+                'danceability': audio_features['danceability'],
+                'energy': audio_features['energy'],
+                'key': audio_features['key'],
+                'loudness': audio_features['loudness'],
+                'mode': audio_features['mode'],
+                'speechiness': audio_features['speechiness'],
+                'acousticness': audio_features['acousticness'],
+                'instrumentalness': audio_features['instrumentalness'],
+                'liveness': audio_features['liveness'],
+                'valence': audio_features['valence'],
+                'tempo': audio_features['tempo'],
+                'duration_ms': audio_features['duration_ms'],
+                'time_signature': audio_features['time_signature'],
+                'genres': sp.artist(track['artists'][0]['id'])['genres']
+            })
 
     df = pd.DataFrame(song_data)
+    if df.empty:
+        raise ValueError("No valid audio features found for any tracks.")
     if df.isnull().values.any():
-        raise ValueError("Data contains NaN values. Please check the data.")
+        print("Warning: Some tracks have missing audio features.")
     return df

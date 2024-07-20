@@ -40,4 +40,4 @@ with gr.Blocks(theme=gr.themes.Soft()) as iface:
     )
 
 if __name__ == "__main__":
-    iface.launch()
+    iface.launch(server_port=8080)

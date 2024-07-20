@@ -6,3 +6,5 @@ Pillow
 stability-sdk
 protobuf
 streamlit
+requests
+numpy

@@ -1,42 +1,53 @@
-import os
-from stability_sdk import client
-import stability_sdk.interfaces.gooseai.generation.generation_pb2 as generation
+import aiohttp
 from PIL import Image
 import io
+from src.spotify_assorter.config import UNSPLASH_ACCESS_KEY
 
 class ImageGenerator:
     def __init__(self):
-        try:
-            self.stability_api = client.StabilityInference(
-                key=os.environ['STABILITY_API_KEY'],  # Use environment variable
-                verbose=True,
-            )
-        except Exception as e:
-            raise RuntimeError(f"Failed to initialize Stability API: {e}")
+        self.api_key = UNSPLASH_ACCESS_KEY
+        if not self.api_key:
+            raise RuntimeError("UNSPLASH_ACCESS_KEY is not set in the config file")
+        self.api_url = "https://api.unsplash.com/search/photos"
+        self.session = None
 
-    def generate_image(self, prompt: str) -> Image:
+    async def create_session(self):
+        if self.session is None:
+            self.session = aiohttp.ClientSession()
+
+    async def close_session(self):
+        if self.session:
+            await self.session.close()
+            self.session = None
+
+    async def generate_image(self, prompt: str) -> Image:
+        await self.create_session()
+        headers = {"Authorization": f"Client-ID {self.api_key}"}
+        params = {
+            "query": prompt,
+            "per_page": 1,
+            "orientation": "square"
+        }
+
         try:
-            answers = self.stability_api.generate(
-                prompt=prompt,
-                seed=992446758,
-                steps=30,
-                cfg_scale=8.0,
-                width=512,
-                height=512,
-                samples=1,
-                sampler=generation.SAMPLER_K_DPMPP_2M
-            )
-            for resp in answers:
-                for artifact in resp.artifacts:
-                    if artifact.type == generation.ARTIFACT_IMAGE:
-                        img = Image.open(io.BytesIO(artifact.binary))
-                        return img
-        except Exception as e:
+            async with self.session.get(self.api_url, headers=headers, params=params) as response:
+                response.raise_for_status()
+                data = await response.json()
+                if data['results']:
+                    image_url = data['results'][0]['urls']['regular']
+                    async with self.session.get(image_url) as image_response:
+                        image_response.raise_for_status()
+                        image_data = await image_response.read()
+                        image = Image.open(io.BytesIO(image_data))
+                        return image
+                else:
+                    raise RuntimeError("No images found for the given prompt")
+        except aiohttp.ClientError as e:
             raise RuntimeError(f"Failed to generate image: {e}")
 
-    def save_image(self, image: Image, path: str) -> str:
+    async def save_image(self, image: Image, path: str) -> str:
         try:
             image.save(path)
+            return path
         except Exception as e:
             raise RuntimeError(f"Failed to save the image: {e}")
-        return path

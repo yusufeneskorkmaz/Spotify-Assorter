@@ -13,6 +13,7 @@ list_of_files = [
     f"src/{project_name}/playlist_manager.py",
     f"src/{project_name}/config.py",
     f"src/{project_name}/image_generator.py",
+    f"src/{project_name}/smart_image_selector.py",
     "app.py",
     "main.py",
     "requirements.txt",

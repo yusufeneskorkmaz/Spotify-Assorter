@@ -1,5 +1,8 @@
 import base64
-import os
+import requests
+from PIL import Image
+import io
+
 
 class PlaylistManager:
     def __init__(self, sp):
@@ -20,8 +23,19 @@ class PlaylistManager:
 
     def update_playlist_cover_image(self, playlist_id, image_path):
         try:
-            with open(image_path, "rb") as image_file:
-                encoded_image = base64.b64encode(image_file.read())
+            # Open the image and resize it to 300x300 (Spotify's recommended size)
+            with Image.open(image_path) as img:
+                img = img.resize((300, 300))
+
+                # Convert the image to PNG format
+                buffered = io.BytesIO()
+                img.save(buffered, format="PNG")
+
+                # Encode the image
+                encoded_image = base64.b64encode(buffered.getvalue())
+
+                # Upload the image
                 self.sp.playlist_upload_cover_image(playlist_id, encoded_image)
         except Exception as e:
-            raise RuntimeError(f"Failed to update playlist cover image: {e}")
+            print(f"Error updating playlist cover image: {e}")
+            # Instead of raising an exception, we'll just print the error and continue
