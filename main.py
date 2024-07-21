@@ -10,6 +10,10 @@ async def classify_songs_and_create_playlists(num_playlists):
     sp = get_spotify_client()
     liked_songs_df = get_liked_songs(sp)
 
+    print("DataFrame columns:", liked_songs_df.columns)
+    print("DataFrame shape:", liked_songs_df.shape)
+    print("DataFrame head:\n", liked_songs_df.head())
+
     features = liked_songs_df[['danceability', 'energy', 'tempo', 'valence']]
     labels = liked_songs_df['genres'].apply(lambda x: x[0] if x else 'Unknown')
 

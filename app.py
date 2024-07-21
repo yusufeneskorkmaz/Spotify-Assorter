@@ -1,18 +1,18 @@
 import gradio as gr
 from main import classify_songs_and_create_playlists
-
+import asyncio
+import traceback
 
 def format_playlist_info(playlists):
     return "\n".join([f"- {name}: {count} tracks" for name, count, _ in playlists])
 
-
-def create_playlists_ui(num_playlists, progress=gr.Progress()):
+async def create_playlists_ui(num_playlists, progress=gr.Progress()):
     try:
-        result, playlists = classify_songs_and_create_playlists(num_playlists)
+        result, playlists = await classify_songs_and_create_playlists(num_playlists)
         return result, format_playlist_info(playlists), [img for _, _, img in playlists]
     except Exception as e:
-        return f"An error occurred: {e}", "", []
-
+        error_message = f"An error occurred: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+        return error_message, "", []
 
 with gr.Blocks(theme=gr.themes.Soft()) as iface:
     gr.Markdown(
@@ -34,7 +34,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as iface:
     gallery = gr.Gallery(label="Playlist Cover Images", show_label=True, elem_id="gallery")
 
     create_button.click(
-        create_playlists_ui,
+        lambda num: asyncio.run(create_playlists_ui(num)),
         inputs=[num_playlists],
         outputs=[output_text, playlist_info, gallery]
     )

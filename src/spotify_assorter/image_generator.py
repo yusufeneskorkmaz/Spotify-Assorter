@@ -1,53 +1,45 @@
 import aiohttp
 from PIL import Image
 import io
-from src.spotify_assorter.config import UNSPLASH_ACCESS_KEY
+import os
+from urllib.parse import quote
 
 class ImageGenerator:
     def __init__(self):
-        self.api_key = UNSPLASH_ACCESS_KEY
-        if not self.api_key:
-            raise RuntimeError("UNSPLASH_ACCESS_KEY is not set in the config file")
-        self.api_url = "https://api.unsplash.com/search/photos"
-        self.session = None
+        self.api_key = os.getenv('UNSPLASH_ACCESS_KEY')
+        self.session = aiohttp.ClientSession()
 
-    async def create_session(self):
-        if self.session is None:
-            self.session = aiohttp.ClientSession()
+    def sanitize_query(self, query):
+        # Remove any characters that are not alphanumeric or spaces
+        return ' '.join(''.join(char for char in word if char.isalnum()) for word in query.split())
 
-    async def close_session(self):
-        if self.session:
-            await self.session.close()
-            self.session = None
-
-    async def generate_image(self, prompt: str) -> Image:
-        await self.create_session()
-        headers = {"Authorization": f"Client-ID {self.api_key}"}
-        params = {
-            "query": prompt,
-            "per_page": 1,
-            "orientation": "square"
-        }
-
+    async def generate_image(self, prompt):
         try:
-            async with self.session.get(self.api_url, headers=headers, params=params) as response:
+            sanitized_prompt = self.sanitize_query(prompt)
+            encoded_prompt = quote(sanitized_prompt)
+            url = f"https://api.unsplash.com/search/photos?query={encoded_prompt}&per_page=1&orientation=square"
+            headers = {"Authorization": f"Client-ID {self.api_key}"}
+
+            async with self.session.get(url, headers=headers) as response:
                 response.raise_for_status()
                 data = await response.json()
-                if data['results']:
-                    image_url = data['results'][0]['urls']['regular']
-                    async with self.session.get(image_url) as image_response:
-                        image_response.raise_for_status()
-                        image_data = await image_response.read()
-                        image = Image.open(io.BytesIO(image_data))
-                        return image
-                else:
-                    raise RuntimeError("No images found for the given prompt")
-        except aiohttp.ClientError as e:
-            raise RuntimeError(f"Failed to generate image: {e}")
 
-    async def save_image(self, image: Image, path: str) -> str:
-        try:
-            image.save(path)
-            return path
+            if 'results' in data and len(data['results']) > 0:
+                image_url = data['results'][0]['urls']['regular']
+                async with self.session.get(image_url) as img_response:
+                    img_response.raise_for_status()
+                    img_data = await img_response.read()
+                    return Image.open(io.BytesIO(img_data))
+            else:
+                print("No image found, returning default image.")
+                return self.default_image()
         except Exception as e:
-            raise RuntimeError(f"Failed to save the image: {e}")
+            print(f"Error generating image: {e}")
+            return self.default_image()
+
+    def default_image(self):
+        # Return a default image or a blank image
+        return Image.new('RGB', (500, 500), color='grey')
+
+    async def close_session(self):
+        await self.session.close()
